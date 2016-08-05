@@ -1,4 +1,4 @@
-Practical Application of the State Monad 
+Practical Application of the State Monad - Time Series Pre-Processing 
 ======================================== 
 
 The motivation for writing this blog post came after reading the book [Functional Programming in Scala][1] along with numerous other posts discussing Monads. 
@@ -60,6 +60,7 @@ times(s)  |   value1
   13      |     None
   14      |     15.0 
 ``` 
+Side Note: For this you're going to need to use the scalaz library. I would reccomend cloning this repo and using the sbt console command to load a REPL with Scalaz on the classpath. 
 
 Historically, I would probably have writen function that uses internal mutable state but remains pure to the outside caller such as: 
 
@@ -90,7 +91,7 @@ def processRawRow(ls: List[RawRow], threshold: Int = 10): List[Row] = {
 ``` 
 
 Whats the problem with this? Well nothing in particular, but I find it a bit tough to reason about, it isn't as DRY as possible, and tough to understand at a glance. 
-And while I could potentially clean this up a bit, I think it'd only be incremental improvements. 
+While I could potentially clean this up a bit, I think it'd only be incremental improvements. 
  
 So what is a potential solution to this problem? 
 
@@ -108,7 +109,7 @@ def procLines(i: RawRow, timeLimit: Int): State[PrevState,Row] = State {
   val newTime = x.timeBetween + 1
 
   i match {
-    case RawRow(_, Some(x)) => (PrevState(0, Some(x)), i.toRow)
+    case RawRow(_, Some(y)) => (PrevState(0, Some(y)), i.toRow)
     case RawRow(_, None) if newTime < timeLimit => (PrevState(newTime,x.prevValue),i.copy(value = x.prevValue).toRow)
     case _ => (PrevState(newTime, x.prevValue), i.toRow)
   }
@@ -117,21 +118,21 @@ def procLines(i: RawRow, timeLimit: Int): State[PrevState,Row] = State {
 
 Now that we have the function that takes the RawRow object(+ timeLimit) and returns a State Monad we can use it to perform a state traversal which will pass the State as it goes through the list. 
 
-What is the signature of this traversal function? Well accord to the Scala Docs it is: 
+What is the signature of this traversal function? Well according to the Scala Docs it is: 
 ``` 
 def traverseS[S, A, B](fa: F[A])(f: (A) ⇒ State[S, B]): State[S, F[B]]
 ``` 
 
 In our case the generics evaluate out to: 
 ```
-traverseS(fa: List[RawRow])(f: (RawRow) => State[PrevState, Row]): State[S, List[Row]]
+traverseS(fa: List[RawRow])(f: (RawRow) => State[PrevState, Row]): State[PrevState, List[Row]]
 ``` 
 
 The F in the original just stands for Functor and a List is a functor. Now the only problem we have left is that our original function is of type: 
 ``` 
 (RawRow, Int) => State[PrevState,Row]
 ``` 
-This however can be fixed by partially applying the timeLimit argument when we call the traverse function. 
+This however can be easily fixed by partially applying the timeLimit argument when we call the traverse function. 
 
 To make this easier to follow along, I will provide a copy and paste version of the test data below: 
 ```
@@ -154,7 +155,7 @@ Some(15.0)
 val testList = (1 to 14).toList.zip(testValues).map(x => RawRow(x._1,x._2))
 ```
 
-And now the actual code that performs the state traversal! 
+And now for the actual code that performs the state traversal! 
 ``` 
 val result = testList traverseS(procLines(_, 10)) run (PrevState(0,None: Option[Double]))
 ``` 
@@ -169,7 +170,9 @@ As you can see, the result is the list we expected.
 
 While this introduction didn't go into the actual types and theory of monads as much as other tutorials do, I hope it helps to show that some of the more advanced features of funcation programming are approachable as well. My goal here is to provide an example that will help other begin using these features. 
 
-In the next edition, we'll dive into how these can be composed together to yield even more powerful operations and further reduce impure code.
+In the next edition, we'll dive into how these can be composed together to yield even more powerful operations and further reduce impure code. 
+
+Additionally - There is another file in the repo to provide another example. 
 
 
 [1]: https://www.amazon.com/Functional-Programming-Scala-Paul-Chiusano/dp/1617290653
