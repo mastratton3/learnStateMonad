@@ -41,7 +41,7 @@ Below I establish the initial case classes we need:
 ``` 
 import scalaz._
 import Scalaz._
-// Note: I typically would delcare these in reverse order, but wanted to by copy paste friendly 
+// Note: I typically would delcare these in reverse order, but wanted to be copy paste friendly 
 case class Row(time: Int, value: Option[Double]) 
 case class RawRow(time: Int, value: Option[Double]) {
   def toRow: Row = Row(time, value)
